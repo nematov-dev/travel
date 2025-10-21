@@ -1,0 +1,44 @@
+# Byte-code files
+*.pyc
+__pycache__/
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Database files
+*.sqlite3
+db.sqlite3
+
+# Media and static files (if not served by the app directly)
+media/
+static/
+
+# IDE/Editor specific files
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Log files
+*.log
+
+# Environment variables
+.env
+.flaskenv
+
+# Django specific
+migrations/
+# If you want to ignore all migrations, but it's often useful to track initial migrations.
+# Consider ignoring only specific app's migrations if needed, e.g., myapp/migrations/
+
+# Test/coverage related
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Build artifacts
+dist/
+build/
