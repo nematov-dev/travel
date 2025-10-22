@@ -93,7 +93,6 @@ class PostLike(BaseModel):
         verbose_name_plural = 'Post Likes'
         unique_together = ('post', 'user')
 
-    
 class UserPost(BaseModel):
     user = models.ForeignKey(User,on_delete=models.CASCADE,related_name="posts")
     tag = models.ForeignKey(PostTag,on_delete=models.CASCADE,related_name='posts',null=True,blank=True)

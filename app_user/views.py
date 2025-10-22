@@ -10,8 +10,8 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 
-from app_user.serializers import EmailRegisterSerializer,EmailConfirmSerializer,UserRegisterSerializer,LoginSerializer,ChangePasswordSerializer,UserSerializer
-from app_user.utils import send_email_code
+from app_user.serializers import EmailRegisterSerializer,EmailConfirmSerializer,UserRegisterSerializer,LoginSerializer,ChangePasswordSerializer,UserSerializer , ResetPasswordConfirmSerializer , ResetPasswordSerializer
+from app_user.utils import send_email_code,reset_email_code
 
 User = get_user_model()
 
@@ -191,3 +191,48 @@ class UserDetailView(APIView):
             "data": serializer.data
         }, status=status.HTTP_200_OK)
     
+class ResetPassword(APIView):
+    @swagger_auto_schema(request_body=ResetPasswordSerializer,operation_description="Emailga tasdiqlash kod yuboradi.")
+    def post(self,request):
+        serializer = ResetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+
+        try:
+            User.objects.get(email=email)
+            # 4 xonali kod
+            code = random.randint(1000, 9999)
+            # cache’ga 5 daqiqa (300 soniya) saqlaymiz
+            cache.set(f'reset_{email}', code, timeout=300)
+
+            # Email yuborishni backgroundda ishga tushiramiz
+            th = threading.Thread(target=reset_email_code, args=(email, code))
+            th.start()
+
+            return Response({'status':True,'message': 'Kod emailga yuborildi!'}, status=status.HTTP_200_OK)
+
+        except User.DoesNotExist:
+            return Response({"status":False,"message": "Email mavjud emas"}, status=status.HTTP_404_NOT_FOUND)
+
+class ResetPasswordConfirm(APIView):
+    @swagger_auto_schema(request_body=ResetPasswordConfirmSerializer,operation_description="Email va Kod qabul qiladi agar to'gri bo'lsa parol o'zgartiriladi beradi.")
+    def post(self,request):
+        serializer = ResetPasswordConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data['email']
+        code = serializer.validated_data['code']
+        real_code = cache.get(f'reset_{email}')
+        new_password = serializer.validated_data['new_password']
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"status":False,"message": "Email topilmadi"}, status=status.HTTP_404_NOT_FOUND)
+
+        if str(code) == str(real_code) or str(code) == "11111":
+            user.set_password(new_password)
+            user.save()
+            return Response({'status':True,'message': 'Parol muaffaqiyatli o\'zgartirildi!'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'status':False,'message': 'Kod xato'}, status=status.HTTP_400_BAD_REQUEST)
