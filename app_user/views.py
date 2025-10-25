@@ -22,6 +22,7 @@ from app_user.serializers import EmailRegisterSerializer,EmailConfirmSerializer,
 from app_user import serializers
 from app_user.utils import send_email_code,reset_email_code
 from app_user import models
+from app_user import pagination
 
 User = get_user_model()
 
@@ -320,7 +321,8 @@ class AllPostsList(APIView):
     """
     Barcha postlarni olish (like soni bo‘yicha tartiblangan)
     """
-    permission_classes = [permissions.AllowAny]  # login bo‘lmaganlar ham ko‘ra oladi
+    permission_classes = [permissions.AllowAny]# login bo‘lmaganlar ham ko‘ra oladi
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter,]
 
     def get(self, request):
         # Har bir postga like sonini hisoblab chiqamiz
@@ -367,6 +369,42 @@ class UserDetailAPIView(APIView):
 
         serializer = serializers.UserDetailSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class PostTagListCreateView(generics.ListCreateAPIView):
+    """
+    ✅ Taglarni olish (GET) + yangi tag yaratish (POST)
+    - GET: pagination va search bilan
+    - POST: faqat login bo‘lgan user
+    """
+    queryset = models.PostTag.objects.all().order_by('title')
+    serializer_class = serializers.PostTagSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = pagination.DefaultPagination
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(title__icontains=search)
+        return queryset
+
+
+class TagPostListView(generics.ListAPIView):
+    """
+    ✅ Ma’lum tagga tegishli barcha postlar
+    """
+    serializer_class = serializers.UserPostDetailSerializer
+    pagination_class = pagination.DefaultPagination
+
+    def get_queryset(self):
+        tag_id = self.kwargs['tag_id']
+        tag = get_object_or_404(models.PostTag, id=tag_id)
+        return (
+            models.UserPost.objects.filter(tag=tag, is_status=True)
+            .select_related('tag', 'user')
+            .prefetch_related('medias', 'likes')
+            .order_by('-id')
+        )
 
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter

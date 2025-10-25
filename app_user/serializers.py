@@ -147,3 +147,4 @@ class PostLikeSerializer(serializers.ModelSerializer):
         model = models.PostLike
         fields = ['id', 'user', 'post', 'created_at']
         read_only_fields = ['user', 'created_at']
+

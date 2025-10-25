@@ -23,6 +23,8 @@ urlpatterns = [
     path('posts/public/all', views.AllPublicPostsList.as_view(), name='public-posts'),
     path('posts/<int:post_id>/like/', views.PostLikeToggle.as_view(), name='post-like'),
     path('user/<int:user_id>/detail/', views.UserDetailAPIView.as_view(), name='user-detail'),
+    path('tags/', views.PostTagListCreateView.as_view(), name='tags-list'),
+    path('tags/<int:tag_id>/posts/', views.TagPostListView.as_view(), name='tag-posts'),
 
 
     # # ✅ Social login endpointlar
