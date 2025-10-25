@@ -94,7 +94,7 @@ class PostLike(BaseModel):
         unique_together = ('post', 'user')
 
 class UserPost(BaseModel):
-    user = models.ForeignKey(User,on_delete=models.CASCADE,related_name="posts")
+    user = models.ForeignKey(User,on_delete=models.CASCADE,related_name="user_posts")
     tag = models.ForeignKey(PostTag,on_delete=models.CASCADE,related_name='posts',null=True,blank=True)
     slug = models.SlugField(max_length=255, unique=True, blank=True, null=True)
     title = models.CharField(max_length=255)

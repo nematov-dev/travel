@@ -3,15 +3,25 @@ import threading
 from django.core.cache import cache
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status,permissions
+from rest_framework import status,permissions,filters,generics
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
+from allauth.socialaccount.providers.twitter.views import TwitterOAuthAdapter
+from allauth.socialaccount.providers.apple.views import AppleOAuth2Adapter
+from dj_rest_auth.registration.views import SocialLoginView
+from django.db.models import Count
+from django.shortcuts import get_object_or_404
 
 from app_user.serializers import EmailRegisterSerializer,EmailConfirmSerializer,UserRegisterSerializer,LoginSerializer,ChangePasswordSerializer,UserSerializer , ResetPasswordConfirmSerializer , ResetPasswordSerializer
+from app_user import serializers
 from app_user.utils import send_email_code,reset_email_code
+from app_user import models
 
 User = get_user_model()
 
@@ -32,6 +42,31 @@ class EmailRegister(APIView):
         th.start()
 
         return Response({'status':True,'message': 'Kod emailga yuborildi!'}, status=status.HTTP_200_OK)
+
+class AllPublicPostsList(generics.ListAPIView):
+    """
+    Faqat is_status=True (public) bo'lgan postlarni ko‘rsatadi.
+    Like soni bo‘yicha tartiblanadi.
+    Pagination avtomatik 10 ta post.
+    """
+    serializer_class = serializers.UserPostDetailSerializer
+    permission_classes = [permissions.AllowAny]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title', 'description', 'location_name']
+    ordering_fields = ['likes_count', 'id']
+    ordering = ['-likes_count']  # eng ko‘p like olganlar birinchi
+
+    def get_queryset(self):
+        # Faqat public postlar
+        queryset = (
+            models.UserPost.objects
+            .filter(is_status=True)
+            .annotate(likes_count=Count('likes'))
+            .select_related('user', 'tag')
+            .prefetch_related('medias', 'likes')
+            .order_by('-likes_count', '-id')
+        )
+        return queryset
 
 class EmailConfirm(APIView):
     @swagger_auto_schema(request_body=EmailConfirmSerializer,operation_description="Email va Kod qabul qiladi agar to'gri bo'lsa registerga ruxsat beradi.")
@@ -236,3 +271,114 @@ class ResetPasswordConfirm(APIView):
             return Response({'status':True,'message': 'Parol muaffaqiyatli o\'zgartirildi!'}, status=status.HTTP_200_OK)
         else:
             return Response({'status':False,'message': 'Kod xato'}, status=status.HTTP_400_BAD_REQUEST)
+
+class UserPost(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter('title', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True),
+            openapi.Parameter('description', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True),
+            openapi.Parameter('tag', openapi.IN_FORM, type=openapi.TYPE_INTEGER),
+            openapi.Parameter('location_name', openapi.IN_FORM, type=openapi.TYPE_STRING),
+            openapi.Parameter('latitude', openapi.IN_FORM, type=openapi.TYPE_STRING),
+            openapi.Parameter('longitude', openapi.IN_FORM, type=openapi.TYPE_STRING),
+            openapi.Parameter('is_status', openapi.IN_FORM, type=openapi.TYPE_BOOLEAN),
+            openapi.Parameter('images', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False, description="Upload multiple images (use Postman for multiple files)"),
+        ],
+        consumes=['multipart/form-data'],
+        responses={201: 'Post created successfully', 400: 'Bad request'}
+    )
+    def post(self, request):
+        serializer = serializers.UserPostSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            post = serializer.save(user=request.user)
+
+            return Response({'status': True, 'message': 'Post yaratildi!'}, status=status.HTTP_201_CREATED)
+
+        return Response({'status': False, 'message': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+class UserPostGet(APIView):
+    """
+    Post yaratish (POST) va barcha postlarni olish (GET)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        posts = (
+            models.UserPost.objects
+            .filter(user=user)
+            .select_related("user", "tag")
+            .prefetch_related("medias", "likes")
+            .order_by("-id")
+        )
+        serializer = serializers.UserPostDetailSerializer(posts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class AllPostsList(APIView):
+    """
+    Barcha postlarni olish (like soni bo‘yicha tartiblangan)
+    """
+    permission_classes = [permissions.AllowAny]  # login bo‘lmaganlar ham ko‘ra oladi
+
+    def get(self, request):
+        # Har bir postga like sonini hisoblab chiqamiz
+        posts = (
+            models.UserPost.objects
+            .annotate(likes_count=Count('likes'))  # like larni sanaymiz
+            .prefetch_related('medias', 'likes', 'tag', 'user')
+            .order_by('-likes_count', '-id')  # Eng ko‘p like olganlar birinchi chiqadi
+        )
+
+        serializer = serializers.UserPostDetailSerializer(posts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class PostLikeToggle(APIView):
+    """Postga like bosish yoki unlike qilish"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, post_id):
+        post = get_object_or_404(models.UserPost, id=post_id)
+        user = request.user
+
+        # Like mavjudligini tekshiramiz
+        like, created = models.PostLike.objects.get_or_create(user=user, post=post)
+
+        if not created:
+            # Agar avval bosilgan bo‘lsa, unlike qilamiz
+            like.delete()
+            return Response({'status': True, 'message': 'Like olib tashlandi!'}, status=status.HTTP_200_OK)
+
+        return Response({'status': True, 'message': 'Like bosildi!'}, status=status.HTTP_201_CREATED)
+
+
+class UserDetailAPIView(APIView):
+    """Foydalanuvchi haqida batafsil ma’lumot (postlari bilan birga)"""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, user_id):
+        user = get_object_or_404(models.User, id=user_id)
+        posts = (
+            models.UserPost.objects
+            .filter(user=user)
+            .prefetch_related('medias', 'likes', 'tag')
+        )
+
+        serializer = serializers.UserDetailSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class GoogleLogin(SocialLoginView):
+    adapter_class = GoogleOAuth2Adapter
+
+
+class FacebookLogin(SocialLoginView):
+    adapter_class = FacebookOAuth2Adapter
+
+
+class TwitterLogin(SocialLoginView):
+    adapter_class = TwitterOAuthAdapter
+
+
+class AppleLogin(SocialLoginView):
+    adapter_class = AppleOAuth2Adapter
