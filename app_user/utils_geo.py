@@ -7,24 +7,26 @@ from django.core.cache import cache
 
 GEOIP_DB_PATH = getattr(settings, "GEOIP_PATH", None)
 GEOIP_DB_FILE = os.path.join(GEOIP_DB_PATH, "GeoLite2-Country.mmdb") if GEOIP_DB_PATH else None
-CACHE_TIMEOUT = 60 * 60  # 1 soat (IP -> country mapping cache)
+CACHE_TIMEOUT = 60 * 60  # 1 soat
+
+# LOCAL TEST IP (development uchun)
+LOCAL_TEST_IP = "188.163.16.1"  # O‘zbekiston IPsi, localda test qilish uchun
 
 def get_client_ip(request):
-    """Get client IP respecting proxy headers. Only trust X-Forwarded-For if behind trusted proxy."""
+    """Get client IP respecting proxy headers."""
     x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     if x_forwarded_for:
         ip = x_forwarded_for.split(",")[0].strip()
     else:
         ip = request.META.get("REMOTE_ADDR")
+    
+    # Localda test qilish uchun override
+    if ip in ("127.0.0.1", "::1") and settings.DEBUG:
+        ip = LOCAL_TEST_IP
     return ip
 
 def country_code_from_ip(ip):
-    """
-    Get country code from IP.
-    1) Try cache first.
-    2) Use local GeoIP DB.
-    3) Fallback to external API (ipapi.co)
-    """
+    """Get country code from IP with cache, GeoIP DB, fallback API."""
     if not ip:
         return None
 
@@ -58,9 +60,7 @@ def country_code_from_ip(ip):
     return None
 
 def is_ip_from_uz(request):
-    """
-    Returns True if request IP belongs to Uzbekistan (country code 'UZ').
-    """
+    """Check if request IP belongs to Uzbekistan."""
     ip = get_client_ip(request)
     country = country_code_from_ip(ip)
     return country == "UZ"
