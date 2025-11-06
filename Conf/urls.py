@@ -20,6 +20,7 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/users/', include('app_user.urls')),
+    path('api/v1/auth/', include('app_auth.urls')),
     path('accounts/', include('allauth.urls')),
     
     #Swagger
