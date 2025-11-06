@@ -233,7 +233,7 @@ SOCIALACCOUNT_PROVIDERS = {
     # twitter va apple uchun konfiguratsiya keyin o'rnatiladi
 } 
 
-
-
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
+
+GEOIP_PATH = BASE_DIR / "geoip"  # yoki string path

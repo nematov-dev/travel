@@ -16,6 +16,7 @@ from app_user import serializers
 from app_user.utils import send_email_code
 from app_user import models
 from app_user import pagination
+from app_user.utils_geo import is_ip_from_uz
 
 User = get_user_model()
 
@@ -28,7 +29,14 @@ class EmailRegister(APIView):
         Email sending runs in a background thread.
         """
     )
+    
     def post(self, request):
+        # 1️⃣ Check if IP is from Uzbekistan
+        if not is_ip_from_uz(request):
+            return Response(
+                {"status": False, "message": "Registration is allowed only from Uzbekistan."},
+                status=status.HTTP_403_FORBIDDEN
+        )
         serializer = EmailRegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -102,6 +110,12 @@ class UserRegister(APIView):
         """
     )
     def post(self,request):
+        # 1️⃣ Check if IP is from Uzbekistan
+        if not is_ip_from_uz(request):
+            return Response(
+                {"status": False, "message": "Registration is allowed only from Uzbekistan."},
+                status=status.HTTP_403_FORBIDDEN
+        )
         serilizer = UserRegisterSerializer(data=request.data)
         if serilizer.is_valid(raise_exception=True):
             email = serilizer.validated_data['email']
