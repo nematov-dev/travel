@@ -1,8 +1,4 @@
-
 from django.urls import path,include
-from rest_framework_simplejwt.views import (
-    TokenRefreshView,TokenBlacklistView
-)
 
 from app_user import views
 
@@ -10,8 +6,6 @@ urlpatterns = [
     path('email/', views.EmailRegister.as_view(), name='email_register'),
     path('email/confirm/',views.EmailConfirm.as_view(),name="email_confirm"),
     path('register/user/',views.UserRegister.as_view(),name='register_user'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('logout/',TokenBlacklistView.as_view(),name='logout'),
     path('user/profile/',views.UserDetailView.as_view(),name='user_profile'),
     path('posts/create/',views.UserPost.as_view(),name="user_create_post"),
     path('posts/get',views.UserPostGet.as_view(),name="get_posts"),
