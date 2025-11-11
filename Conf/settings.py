@@ -236,4 +236,4 @@ SOCIALACCOUNT_PROVIDERS = {
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
-GEOIP_PATH = BASE_DIR / "geoip"  # yoki string path
+GEOIP_PATH = BASE_DIR / "geoip" # yoki string path

@@ -4,63 +4,91 @@ import geoip2.database
 import requests
 from django.conf import settings
 from django.core.cache import cache
+import logging
+
+logger = logging.getLogger(__name__)
 
 GEOIP_DB_PATH = getattr(settings, "GEOIP_PATH", None)
 GEOIP_DB_FILE = os.path.join(GEOIP_DB_PATH, "GeoLite2-Country.mmdb") if GEOIP_DB_PATH else None
 CACHE_TIMEOUT = 60 * 60  # 1 soat
 
-# LOCAL TEST IP (development uchun)
-LOCAL_TEST_IP = "188.163.16.1"  # O‘zbekiston IPsi, localda test qilish uchun
-
 def get_client_ip(request):
-    """Get client IP respecting proxy headers."""
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(",")[0].strip()
-    else:
-        ip = request.META.get("REMOTE_ADDR")
-    
-    # Localda test qilish uchun override
-    if ip in ("127.0.0.1", "::1") and settings.DEBUG:
-        ip = LOCAL_TEST_IP
-    return ip
+    """
+    Get client IP, supporting multiple headers.
+    Priority: X-Real-IP > CF-Connecting-IP > X-Forwarded-For > REMOTE_ADDR
+    """
+    for header in ("HTTP_X_REAL_IP", "HTTP_CF_CONNECTING_IP", "HTTP_X_FORWARDED_FOR", "REMOTE_ADDR"):
+        ip = request.META.get(header)
+        if ip:
+            # X-Forwarded-For bir nechta IP bo'lishi mumkin
+            if header == "HTTP_X_FORWARDED_FOR":
+                ip = ip.split(",")[0].strip()
+            logger.info(f"Detected client IP from {header}: {ip}")
+            return ip.strip()
+    logger.warning("No client IP found, defaulting to None")
+    return None
 
 def country_code_from_ip(ip):
-    """Get country code from IP with cache, GeoIP DB, fallback API."""
+    """
+    Returns ISO country code from IP.
+    1. Cache
+    2. Local GeoIP DB
+    3. ipapi.co fallback
+    """
     if not ip:
         return None
 
     cache_key = f"ip_country_{ip}"
-    cached_country = cache.get(cache_key)
-    if cached_country:
-        return cached_country
+    cached = cache.get(cache_key)
+    if cached:
+        logger.info(f"Country from cache for {ip}: {cached}")
+        return cached
 
-    # 1) Local GeoIP DB
+    # 1️⃣ Local GeoIP DB
     if GEOIP_DB_FILE and os.path.exists(GEOIP_DB_FILE):
         try:
             with geoip2.database.Reader(GEOIP_DB_FILE) as reader:
                 response = reader.country(ip)
-                if response and response.country and response.country.iso_code:
-                    country_code = response.country.iso_code.upper()
+                country_code = (response.country.iso_code or "").upper()
+                if country_code:
                     cache.set(cache_key, country_code, CACHE_TIMEOUT)
+                    logger.info(f"Country from GeoIP DB for {ip}: {country_code}")
                     return country_code
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception(f"GeoIP DB lookup failed for {ip}: {e}")
 
-    # 2) Fallback: external API
+    # 2️⃣ Fallback: external API
     try:
         r = requests.get(f"https://ipapi.co/{ip}/country/", timeout=3)
         if r.status_code == 200:
             country_code = r.text.strip().upper()
             cache.set(cache_key, country_code, CACHE_TIMEOUT)
+            logger.info(f"Country from ipapi.co for {ip}: {country_code}")
             return country_code
-    except Exception:
-        pass
+        else:
+            logger.warning(f"ipapi.co returned {r.status_code} for {ip}")
+    except Exception as e:
+        logger.exception(f"ipapi.co lookup failed for {ip}: {e}")
 
+    logger.warning(f"Unable to determine country for {ip}")
     return None
 
 def is_ip_from_uz(request):
-    """Check if request IP belongs to Uzbekistan."""
+    """
+    Returns True if client IP belongs to Uzbekistan.
+    Localhost (127.0.0.1, 192.168.x.x, etc.) is treated as UZ in DEBUG mode.
+    """
     ip = get_client_ip(request)
+
+    # 👇 Lokal test muhitida doim True (UZ) sifatida qaytarish
+    if settings.DEBUG and ip and (
+        ip in ("127.0.0.1", "::1") or ip.startswith(("192.168.", "10."))
+    ):
+        logger.info(f"Local IP {ip} treated as UZ (DEBUG mode).")
+        return True
+
+    # 🌍 Productionda real GeoIP orqali tekshirish
     country = country_code_from_ip(ip)
+    logger.info(f"is_ip_from_uz check: IP={ip}, country={country}")
+
     return country == "UZ"
