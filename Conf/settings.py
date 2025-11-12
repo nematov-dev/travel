@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
 
     # Allauth
     'allauth',
@@ -183,7 +184,6 @@ SWAGGER_SETTINGS = {
     'USE_SESSION_AUTH': False,
 }
 
-SITE_ID = 1
 
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -208,30 +208,48 @@ SIMPLE_JWT = {
 }
 
 # django-allauth sozlashlar
-ACCOUNT_EMAIL_VERIFICATION = "optional"
-ACCOUNT_AUTHENTICATION_METHOD = "username_email"
+SITE_ID = 1
+REST_USE_JWT = True
+ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_AUTHENTICATION_METHOD = "email"
 ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = False
 SOCIALACCOUNT_QUERY_EMAIL = True
+SOCIALACCOUNT_STORE_TOKENS = True
+
+
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
-        "SCOPE": ["profile", "email"],
-        "AUTH_PARAMS": {"access_type": "online"},
+        "APP": {
+            "client_id": "YOUR_GOOGLE_CLIENT_ID",
+            "secret": "YOUR_GOOGLE_CLIENT_SECRET",
+            "key": ""
+        }
     },
     "facebook": {
-        "METHOD": "oauth2",
-        "SCOPE": ["email", "public_profile"],
-        "FIELDS": ["id", "email", "name", "first_name", "last_name"],
-    },
-    "google": {
-        "SCOPE": ["profile", "email"],
-        "AUTH_PARAMS": {"access_type": "online"},
+        "APP": {
+            "client_id": "YOUR_FACEBOOK_APP_ID",
+            "secret": "YOUR_FACEBOOK_APP_SECRET",
+            "key": ""
+        }
     },
     "twitter": {
-        "SCOPE": ["email", "profile"],
-        "AUTH_PARAMS": {"force_login": "true"},
+        "APP": {
+            "client_id": "MjomODK1QgWwILHHMoqJCYUEh",
+            "secret": "AHgeLHoH35p50FDhMYTMpDxedFla0mBw5upx0ptSazk9GHEP3w",
+            "key": "MjomODK1QgWwILHHMoqJCYUEh"
+        },
+        'VERIFIED_EMAIL': True,
     },
-    # twitter va apple uchun konfiguratsiya keyin o'rnatiladi
-} 
+    "apple": {
+        "APP": {
+            "client_id": "YOUR_APPLE_CLIENT_ID",
+            "secret": "YOUR_APPLE_CLIENT_SECRET",
+            "key": ""
+        }
+    },
+}
+
 
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
