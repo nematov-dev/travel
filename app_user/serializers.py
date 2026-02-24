@@ -38,6 +38,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 # User Post
 
+
 class PostMediaSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.PostMedia
@@ -48,6 +49,20 @@ class PostTagSerializer(serializers.ModelSerializer):
         model = models.PostTag
         fields = ['id', 'title']
 
+class PostCommentSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.PostComment
+        fields = ['id', 'user', 'message', 'created_at']
+
+    def get_user(self, obj):
+        return {
+            "id": obj.user.id,
+            "full_name": obj.user.get_full_name(),
+            "avatar": obj.user.avatar.url if obj.user.avatar else None
+        }
+
 class PostLikeSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)
 
@@ -55,35 +70,59 @@ class PostLikeSerializer(serializers.ModelSerializer):
         model = models.PostLike
         fields = ['id', 'user']
 
+
 class UserPostSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.UserPost
         fields = [
-            'id', 'title', 'description', 'tag', 'location_name',
-            'latitude', 'longitude', 'is_status'
+            'id', 'title', 'description', 'tag',
+            'location_name', 'latitude',
+            'longitude', 'is_status'
         ]
 
     def create(self, validated_data):
         request = self.context['request']
         images = request.FILES.getlist('images')
 
-        # 🔴 1. Kamida bitta rasm majburiy
         if not images:
             raise serializers.ValidationError({
-                "images": "Kamida bitta rasm yuklashingiz kerak!"
+                "images": "At least one image must be uploaded."
             })
 
-        # ✅ 2. Agar serializerda user bor bo‘lsa — olib tashlaymiz
-        validated_data.pop('user', None)
+        post = models.UserPost.objects.create(
+            user=request.user,
+            **validated_data
+        )
 
-        # ✅ 3. Postni yaratamiz
-        post = models.UserPost.objects.create(user=request.user, **validated_data)
-
-        # ✅ 4. Rasmlarni saqlaymiz
         for image in images:
             models.PostMedia.objects.create(post=post, image=image)
 
         return post
+
+    def update(self, instance, validated_data):
+        request = self.context['request']
+        images = request.FILES.getlist('images')
+
+        # 1️⃣ fieldlarni update qilish
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+
+        # 2️⃣ Agar yangi image kelsa → eski medias o‘chadi
+        if images:
+            # eski medialarni o‘chirish
+            for media in instance.medias.all():
+                media.image.delete(save=False)
+                media.delete()
+
+            # yangi medialarni qo‘shish
+            for image in images:
+                models.PostMedia.objects.create(post=instance, image=image)
+
+        return instance
+    
+
     
 class UserPostDetailSerializer(serializers.ModelSerializer):
     """GET uchun to‘liq post malumoti"""

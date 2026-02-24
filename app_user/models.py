@@ -78,6 +78,20 @@ class PostMedia(BaseModel):
         verbose_name = 'Post Media'
         verbose_name_plural = 'Post Medias'
 
+# Post Comment
+
+class PostComment(BaseModel):
+    post = models.ForeignKey('UserPost',on_delete=models.CASCADE,related_name='comments')
+    user = models.ForeignKey(User,on_delete=models.CASCADE,related_name='comments')
+    message = models.TextField()
+
+    def __str__(self):
+        return self.message[:20] + "..."
+
+    class Meta:
+        verbose_name = 'Post Comment'
+        verbose_name_plural = 'Post Comments'
+    
 
 # Post Like
 

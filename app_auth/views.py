@@ -9,12 +9,6 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_yasg.utils import swagger_auto_schema
 
-from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
-from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
-from allauth.socialaccount.providers.twitter.views import TwitterOAuthAdapter
-from allauth.socialaccount.providers.apple.views import AppleOAuth2Adapter
-from dj_rest_auth.registration.views import SocialLoginView
-
 from app_auth.serializers import (
     ResetPasswordConfirmSerializer,
     ResetPasswordSerializer,
@@ -196,23 +190,3 @@ class ResetPasswordConfirm(APIView):
             {"status": False, "message": "Invalid or expired code."},
             status=status.HTTP_400_BAD_REQUEST,
         )
-
-
-class GoogleLogin(SocialLoginView):
-    """Login via Google OAuth2."""
-    adapter_class = GoogleOAuth2Adapter
-
-
-class FacebookLogin(SocialLoginView):
-    """Login via Facebook OAuth2."""
-    adapter_class = FacebookOAuth2Adapter
-
-
-class TwitterLogin(SocialLoginView):
-    """Login via Twitter OAuth."""
-    adapter_class = TwitterOAuthAdapter
-
-
-class AppleLogin(SocialLoginView):
-    """Login via Apple OAuth."""
-    adapter_class = AppleOAuth2Adapter

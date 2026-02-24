@@ -10,6 +10,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth import get_user_model
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import PermissionDenied
+
 
 from app_user.serializers import EmailRegisterSerializer,EmailConfirmSerializer,UserRegisterSerializer,UserSerializer
 from app_user import serializers
@@ -51,31 +53,6 @@ class EmailRegister(APIView):
         th.start()
 
         return Response({'status':True,'message': 'Code sent to email!'}, status=status.HTTP_200_OK)
-
-class AllPublicPostsList(generics.ListAPIView):
-    """
-    Shows only posts with is_status=True (public).
-    Ordered by number of likes.
-    Pagination default 10 posts per page.
-    """
-    serializer_class = serializers.UserPostDetailSerializer
-    permission_classes = [permissions.AllowAny]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['title', 'description', 'location_name']
-    ordering_fields = ['likes_count', 'id']
-    ordering = ['-likes_count']  # most liked first
-
-    def get_queryset(self):
-        # Only public posts
-        queryset = (
-            models.UserPost.objects
-            .filter(is_status=True)
-            .annotate(likes_count=Count('likes'))
-            .select_related('user', 'tag')
-            .prefetch_related('medias', 'likes')
-            .order_by('-likes_count', '-id')
-        )
-        return queryset
 
 class EmailConfirm(APIView):
     @swagger_auto_schema(
@@ -128,6 +105,36 @@ class UserRegister(APIView):
         else:
             return Response({'status':False,'message':serilizer.errors},status=status.HTTP_400_BAD_REQUEST)
 
+
+
+
+class AllPublicPostsList(generics.ListAPIView):
+    """
+    Shows only posts with is_status=True (public).
+    Ordered by number of likes.
+    Pagination default 10 posts per page.
+    """
+    serializer_class = serializers.UserPostDetailSerializer
+    permission_classes = [permissions.AllowAny]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title', 'description', 'location_name']
+    ordering_fields = ['likes_count', 'id']
+    ordering = ['-likes_count']  # most liked first
+
+    def get_queryset(self):
+        # Only public posts
+        queryset = (
+            models.UserPost.objects
+            .filter(is_status=True)
+            .annotate(likes_count=Count('likes'))
+            .select_related('user', 'tag')
+            .prefetch_related('medias', 'likes')
+            .order_by('-likes_count', '-id')
+        )
+        return queryset
+
+
+
 class UserDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
@@ -170,6 +177,7 @@ class UserDetailView(APIView):
  
 class UserPost(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)
 
     @swagger_auto_schema(
         manual_parameters=[
@@ -220,6 +228,65 @@ class UserPostGet(APIView):
         serializer = serializers.UserPostDetailSerializer(posts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+class UserPostUpdateView(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = models.UserPost.objects.all()
+    lookup_url_kwarg = "post_id"
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return serializers.UserPostSerializer  # write
+        return serializers.UserPostDetailSerializer  # read
+
+    def perform_update(self, serializer):
+        post = self.get_object()
+
+        if post.user != self.request.user:
+            raise PermissionDenied("You can't edit this post.")
+
+        serializer.save()
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+
+        serializer = self.get_serializer(
+            instance,
+            data=request.data,
+            partial=partial,
+            context={'request': request} 
+        )
+
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        instance.refresh_from_db()
+
+        read_serializer = serializers.UserPostDetailSerializer(instance)
+        return Response(read_serializer.data)
+    
+
+
+class UserPostDeleteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, post_id):
+        post = get_object_or_404(models.UserPost, id=post_id)
+
+        if post.user != request.user:
+            return Response(
+                {"status": False, "message": "You can't delete this post."},
+                status=403
+            )
+
+        post.delete()
+        return Response(
+            {"status": True, "message": "Post deleted!"},
+            status=200
+        )
+
+
 class AllPostsList(APIView):
     permission_classes = [permissions.AllowAny]  # accessible for unauthenticated users
     filter_backends = [filters.SearchFilter, filters.OrderingFilter,]
@@ -241,6 +308,87 @@ class AllPostsList(APIView):
 
         serializer = serializers.UserPostDetailSerializer(posts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PostCommentCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(request_body=serializers.PostCommentSerializer)
+    def post(self, request, post_id):
+        post = get_object_or_404(models.UserPost, id=post_id)
+
+        serializer = serializers.PostCommentSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user, post=post)
+            return Response(
+                {"status": True, "message": "Comment added!"},
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(serializer.errors, status=400)
+    
+class PostCommentListView(generics.ListAPIView):
+    serializer_class = serializers.PostCommentSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = pagination.DefaultPagination
+
+    def get_queryset(self):
+        post_id = self.kwargs['post_id']
+        return (
+            models.PostComment.objects
+            .filter(post_id=post_id)
+            .select_related('user')
+            .order_by('-created_at')
+        )
+
+
+class PostCommentUpdateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(request_body=serializers.PostCommentSerializer)
+    def patch(self, request, comment_id):
+        comment = get_object_or_404(models.PostComment, id=comment_id)
+
+        if comment.user != request.user:
+            return Response(
+                {"status": False, "message": "You can't edit this comment."},
+                status=403
+            )
+
+        serializer = serializers.PostCommentSerializer(
+            comment,
+            data=request.data,
+            partial=True
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"status": True, "message": "Comment updated!", "data": serializer.data},
+                status=200
+            )
+
+        return Response(serializer.errors, status=400)
+
+
+class PostCommentDeleteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, comment_id):
+        comment = get_object_or_404(models.PostComment, id=comment_id)
+
+        if comment.user != request.user:
+            return Response(
+                {"status": False, "message": "You can't delete this comment."},
+                status=403
+            )
+
+        comment.delete()
+        return Response(
+            {"status": True, "message": "Comment deleted!"},
+            status=200
+        )
+    
 
 class PostLikeToggle(APIView):
     permission_classes = [permissions.IsAuthenticated]

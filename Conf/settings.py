@@ -27,18 +27,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.sites',
-
-    # Allauth
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-
-    # Social providers
-    'allauth.socialaccount.providers.google',
-    'allauth.socialaccount.providers.facebook',
-    'allauth.socialaccount.providers.twitter',
-    'allauth.socialaccount.providers.apple',
 
     # DRF va auth
     'rest_framework',
@@ -47,10 +35,14 @@ INSTALLED_APPS = [
     'dj_rest_auth.registration',
     'drf_yasg',
     'corsheaders',
+    'django_filters',
 
+    #Local app
     'app_user',
     'app_common',
     'app_auth',
+    'app_place',
+    'app_notification',
 ]
 
 MIDDLEWARE = [
@@ -61,7 +53,6 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-     "allauth.account.middleware.AccountMiddleware",
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
 ]
@@ -190,6 +181,7 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 10,
 
     'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
@@ -198,6 +190,8 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
 
+    
+
 }
 
 
@@ -205,49 +199,6 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=120),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=2),
     'AUTH_HEADER_TYPES': ('Bearer',),
-}
-
-# django-allauth sozlashlar
-SITE_ID = 1
-REST_USE_JWT = True
-ACCOUNT_EMAIL_VERIFICATION = "none"
-ACCOUNT_AUTHENTICATION_METHOD = "email"
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = True
-SOCIALACCOUNT_QUERY_EMAIL = True
-SOCIALACCOUNT_STORE_TOKENS = True
-SOCIALACCOUNT_AUTO_SIGNUP = True
-
-SOCIALACCOUNT_PROVIDERS = {
-    "google": {
-        "APP": {
-            "client_id": "YOUR_GOOGLE_CLIENT_ID",
-            "secret": "YOUR_GOOGLE_CLIENT_SECRET",
-            "key": ""
-        }
-    },
-    "facebook": {
-        "APP": {
-            "client_id": "YOUR_FACEBOOK_APP_ID",
-            "secret": "YOUR_FACEBOOK_APP_SECRET",
-            "key": ""
-        }
-    },
-    "twitter": {
-        "APP": {
-            "client_id": "MjomODK1QgWwILHHMoqJCYUEh",
-            "secret": "AHgeLHoH35p50FDhMYTMpDxedFla0mBw5upx0ptSazk9GHEP3w",
-            "key": "MjomODK1QgWwILHHMoqJCYUEh"
-        },
-        'VERIFIED_EMAIL': True,
-    },
-    "apple": {
-        "APP": {
-            "client_id": "YOUR_APPLE_CLIENT_ID",
-            "secret": "YOUR_APPLE_CLIENT_SECRET",
-            "key": ""
-        }
-    },
 }
 
 
