@@ -12,6 +12,9 @@ from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import PermissionDenied
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from app_notification.models import Notification
 
 from app_user.serializers import EmailRegisterSerializer,EmailConfirmSerializer,UserRegisterSerializer,UserSerializer
 from app_user import serializers
@@ -20,7 +23,10 @@ from app_user import models
 from app_user import pagination
 from app_user.utils_geo import is_ip_from_uz
 
+
 User = get_user_model()
+
+channel_layer = get_channel_layer()
 
 class EmailRegister(APIView):
     @swagger_auto_schema(
@@ -104,7 +110,6 @@ class UserRegister(APIView):
                 return Response({"status":False,"message":"Email not confirmed."},status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response({'status':False,'message':serilizer.errors},status=status.HTTP_400_BAD_REQUEST)
-
 
 
 
@@ -201,7 +206,7 @@ class UserPost(APIView):
     def post(self, request):
         serializer = serializers.UserPostSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            post = serializer.save(user=request.user)
+            post = serializer.save()
 
             return Response({'status': True, 'message': 'Post created!'}, status=status.HTTP_201_CREATED)
 
@@ -309,24 +314,51 @@ class AllPostsList(APIView):
         serializer = serializers.UserPostDetailSerializer(posts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
 class PostCommentCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     @swagger_auto_schema(request_body=serializers.PostCommentSerializer)
     def post(self, request, post_id):
         post = get_object_or_404(models.UserPost, id=post_id)
-
         serializer = serializers.PostCommentSerializer(data=request.data)
+
         if serializer.is_valid():
-            serializer.save(user=request.user, post=post)
+            comment = serializer.save(user=request.user, post=post)
+
+            # 🔥 O‘z postiga comment qilsa notification yubormaymiz
+            if post.user != request.user:
+
+                # 1️⃣ DB ga yozish
+                Notification.objects.create(
+                    sender=request.user,
+                    receiver=post.user,
+                    post=post,
+                    notification_type="comment"
+                )
+
+                # # 2️⃣ WebSocket orqali yuborish
+
+                # async_to_sync(channel_layer.group_send)(
+                #     f"user_{post.user.id}",
+                #     {
+                #         "type": "send_notification",
+                #         "data": {
+                #             "type": "comment",
+                #             "message": f"{request.user.username} commented on your post",
+                #             "post_id": post.id,
+                #             "comment_id": comment.id
+                #         }
+                #     }
+                # )
+
             return Response(
                 {"status": True, "message": "Comment added!"},
                 status=status.HTTP_201_CREATED
             )
 
         return Response(serializer.errors, status=400)
-    
+
+
 class PostCommentListView(generics.ListAPIView):
     serializer_class = serializers.PostCommentSerializer
     permission_classes = [permissions.AllowAny]
@@ -388,30 +420,55 @@ class PostCommentDeleteView(APIView):
             {"status": True, "message": "Comment deleted!"},
             status=200
         )
-    
-
+   
 class PostLikeToggle(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    @swagger_auto_schema(
-        operation_description="""
-        Toggles like/unlike for a given post for the authenticated user.
-        If the user has already liked the post, it will remove the like.
-        Otherwise, it will create a like.
-        """
-    )
+
     def post(self, request, post_id):
         post = get_object_or_404(models.UserPost, id=post_id)
         user = request.user
 
-        # Check if like exists
-        like, created = models.PostLike.objects.get_or_create(user=user, post=post)
+        channel_layer = get_channel_layer()
 
+        like, created = models.PostLike.objects.get_or_create(
+            user=user,
+            post=post
+        )
+
+        # 🔴 UNLIKE
         if not created:
-            # If already liked, unlike it
             like.delete()
-            return Response({'status': True, 'message': 'Like removed!'}, status=status.HTTP_200_OK)
+            return Response(
+                {'status': True, 'message': 'Like removed!'},
+                status=status.HTTP_200_OK
+            )
 
-        return Response({'status': True, 'message': 'Liked!'}, status=status.HTTP_201_CREATED)
+        if post.user != user:
+
+            Notification.objects.create(
+                sender=user,
+                receiver=post.user,
+                post=post,
+                notification_type="like"
+            )
+
+            # async_to_sync(channel_layer.group_send)(
+            #     f"user_{post.user.id}",
+            #     {
+            #         "type": "send_notification",
+            #         "data": {
+            #             "type": "like",
+            #             "message": f"{user.username} liked your post",
+            #             "post_id": post.id
+            #         }
+            #     }
+            # )
+
+        return Response(
+            {'status': True, 'message': 'Liked!'},
+            status=status.HTTP_201_CREATED
+        )
+
 
 class UserDetailAPIView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -430,6 +487,7 @@ class UserDetailAPIView(APIView):
 
         serializer = serializers.UserDetailSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class PostTagListCreateView(generics.ListCreateAPIView):
     queryset = models.PostTag.objects.all().order_by('title')

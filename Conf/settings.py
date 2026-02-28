@@ -36,7 +36,8 @@ INSTALLED_APPS = [
     'drf_yasg',
     'corsheaders',
     'django_filters',
-
+    'channels',
+    
     #Local app
     'app_user',
     'app_common',
@@ -44,6 +45,18 @@ INSTALLED_APPS = [
     'app_place',
     'app_notification',
 ]
+
+ASGI_APPLICATION = "config.asgi.application"
+
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("redis", 6379)],
+        },
+    },
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -189,8 +202,6 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
-
-    
 
 }
 

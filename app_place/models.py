@@ -44,6 +44,7 @@ class PlaceRatingModel(BaseModel):
     class Meta:
         verbose_name = 'Place_rating'
         verbose_name_plural = 'Place_ratings'
+        unique_together = ('user', 'place')
 
 
 class PlaceRatingImageModel(BaseModel):

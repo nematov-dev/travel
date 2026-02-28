@@ -22,6 +22,7 @@ urlpatterns = [
     path('api/v1/users/', include('app_user.urls')),
     path('api/v1/auth/', include('app_auth.urls')),
     path('api/v1/notifications/', include('app_notification.urls')),
+    path('api/v1/places/', include('app_place.urls')),
     
     #Swagger
     re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
