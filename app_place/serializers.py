@@ -9,7 +9,10 @@ from .models import PlaceRatingModel, PlaceRatingImageModel,PlaceModel, PlaceCat
 class PlaceCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = PlaceCategoryModel
-        fields = ['id', 'title']
+        fields = ['id',
+                   'title_uz','title_ru','title_en',
+                   'created_at'
+                   ]
 
 class PlaceSerializer(serializers.ModelSerializer):
     category = PlaceCategorySerializer(many=True, read_only=True)
@@ -29,9 +32,9 @@ class PlaceSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'avatar',
-            'title',
+            'title_uz', 'title_ru', 'title_en',
             'website',
-            'description',
+            'description_uz', 'description_ru', 'description_en',
             'latitude',
             'longitude',
             'category',
@@ -60,9 +63,17 @@ class PlaceListSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlaceModel
         fields = [
-            'id', 'avatar', 'title', 'website', 
-            'description', 'latitude', 'longitude', 
-            'category', 'average_rating', 'ratings_count', 'created_at'
+            'id',
+            'avatar',
+            'title_uz', 'title_ru', 'title_en',
+            'website', 
+            'description_uz', 'description_ru', 'description_en',
+            'latitude',
+            'longitude',             
+            'category',
+            'average_rating',
+            'ratings_count',
+            'created_at'
         ]
 
     def get_average_rating(self, obj):

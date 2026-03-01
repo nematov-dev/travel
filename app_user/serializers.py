@@ -47,7 +47,8 @@ class PostMediaSerializer(serializers.ModelSerializer):
 class PostTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.PostTag
-        fields = ['id', 'title']
+        fields = ['id',
+                  'title_uz','title_ru','title_en',]
 
 class PostCommentSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()

@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'channels',
+    'drf_spectacular',
     
     #Local app
     'app_user',
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
     'app_place',
     'app_notification',
     'app_stat',
+    'app_chat',
 ]
 
 ASGI_APPLICATION = "config.asgi.application"
@@ -206,6 +208,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 
 }
 

@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/v1/notifications/', include('app_notification.urls')),
     path('api/v1/places/', include('app_place.urls')),
     path('api/v1/stats/', include('app_stat.urls')),
+    path('api/v1/chat/', include('app_chat.urls')),
     
     #Swagger
     re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
