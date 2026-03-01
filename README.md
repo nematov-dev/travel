@@ -1,4 +1,6 @@
-# 🌍 Travel Uzbekistan API - https://s-libraries.uz/swagger/
+# 🌍 Travel Uzbekistan API
+
+url:  https://s-libraries.uz/swagger/
 
 A comprehensive backend platform built with Django REST Framework for travelers exploring Uzbekistan.
 
