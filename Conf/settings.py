@@ -21,6 +21,7 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
+    'modeltranslation',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
     'app_auth',
     'app_place',
     'app_notification',
+    'app_stat',
 ]
 
 ASGI_APPLICATION = "config.asgi.application"
@@ -59,6 +61,7 @@ CHANNEL_LAYERS = {
 }
 
 MIDDLEWARE = [
+    
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -67,6 +70,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
 
 ]
 
@@ -216,4 +220,21 @@ SIMPLE_JWT = {
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
-GEOIP_PATH = BASE_DIR / "geoip" # yoki string path
+GEOIP_PATH = BASE_DIR / "geoip" 
+
+
+LANGUAGE_CODE = 'uz'
+
+LANGUAGES = (
+    ('uz', 'Uzbek'),
+    ('ru', 'Russian'),
+    ('en', 'English'),
+)
+
+LOCALE_PATHS = [
+    BASE_DIR / 'locale/',
+]
+
+MODELTRANSLATION_FALLBACK_LANGUAGES = ('uz', 'ru', 'en')
+
+MODELTRANSLATION_CUSTOM_FIELDS = ('CharField', 'TextField', 'RichTextField')

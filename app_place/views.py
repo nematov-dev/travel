@@ -7,7 +7,7 @@ from drf_yasg import openapi
 from django.utils.decorators import method_decorator
 
 from .models import PlaceModel, PlaceCategoryModel, PlaceRatingModel
-from .serializers import PlaceSerializer, PlaceCategorySerializer, PlaceRatingCreateSerializer, PlaceRatingReadSerializer
+from .serializers import PlaceSerializer, PlaceCategorySerializer, PlaceRatingCreateSerializer, PlaceRatingReadSerializer,PlaceListSerializer
 from rest_framework.filters import SearchFilter, OrderingFilter
 from .filters import PlaceFilter
 
@@ -38,25 +38,29 @@ class PlaceCategoryAdminViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUserOnly]
 
 
+class PlaceCategoryPublicViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = PlaceCategoryModel.objects.all()
+    serializer_class = PlaceCategorySerializer
+    permission_classes = [permissions.AllowAny]
+
+
 class PlacePublicViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = PlaceModel.objects.all().prefetch_related(
         'category',
         'ratings__user',
         'ratings__images'
     )
-    serializer_class = PlaceSerializer
     permission_classes = [permissions.AllowAny]
-
-    filter_backends = [
-        DjangoFilterBackend,
-        SearchFilter,
-        OrderingFilter
-    ]
-
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = PlaceFilter
     search_fields = ['title', 'description']
-    ordering_fields = ['created_at']
     ordering = ['-created_at']
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return PlaceListSerializer
+        
+        return PlaceSerializer
 
 
 @method_decorator(name='create', decorator=swagger_auto_schema(
@@ -65,7 +69,7 @@ class PlacePublicViewSet(viewsets.ReadOnlyModelViewSet):
             'uploaded_images', 
             openapi.IN_FORM, 
             type=openapi.TYPE_FILE, 
-            description="Bir nechta rasm yuklash imkoniyati"
+            description="Multiple image files to upload (use 'uploaded_images' as the key for each file)",
         ),
     ],
     responses={201: PlaceRatingReadSerializer()}
@@ -87,3 +91,4 @@ class PlaceRatingViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update']:
             return PlaceRatingCreateSerializer
         return PlaceRatingReadSerializer
+    

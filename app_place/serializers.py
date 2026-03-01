@@ -52,6 +52,25 @@ class PlaceSerializer(serializers.ModelSerializer):
     def get_ratings_count(self, obj):
         return obj.ratings.count()
 
+class PlaceListSerializer(serializers.ModelSerializer):
+    category = PlaceCategorySerializer(many=True, read_only=True)
+    average_rating = serializers.SerializerMethodField()
+    ratings_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PlaceModel
+        fields = [
+            'id', 'avatar', 'title', 'website', 
+            'description', 'latitude', 'longitude', 
+            'category', 'average_rating', 'ratings_count', 'created_at'
+        ]
+
+    def get_average_rating(self, obj):
+        return obj.ratings.aggregate(avg=Avg('value'))['avg'] or 0
+
+    def get_ratings_count(self, obj):
+        return obj.ratings.count()
+
 
 class PlaceRatingImageSerializer(serializers.ModelSerializer):
     class Meta:
