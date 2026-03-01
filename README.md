@@ -125,9 +125,7 @@ Server will run at: http://127.0.0.1:8000/
 
 # 📖 API Documentation
 
-Swagger UI: http://127.0.0.1:8000/api/docs/
-
-Redoc: http://127.0.0.1:8000/api/redoc/
+Swagger UI: http://127.0.0.1:8000/swagger/
 
 ------------------------------------------------------------------------
 
@@ -140,6 +138,7 @@ Redoc: http://127.0.0.1:8000/api/redoc/
   app_chat           Messaging system, media attachments, emoji reactions
   app_place          Tourist locations, categories, and user ratings
   app_notification   User activity notifications system
+  app_stat           Admin panel statistics
 
 ------------------------------------------------------------------------
 
@@ -169,9 +168,7 @@ Redoc: http://127.0.0.1:8000/api/redoc/
 
 # 👨‍💻 Author
 
-Saidakbar Nematov\
-Backend Python Developer\
-Django & DRF Specialist
+Saidakbar Nematov
 
 ------------------------------------------------------------------------
 
